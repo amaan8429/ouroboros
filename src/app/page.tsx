@@ -1,101 +1,259 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
+const API_URL = "https://python-orubs.onrender.com/"; // Replace with your Python backend URL
+
+export default function ExamPaperGenerator() {
+  const [assignments, setAssignments] = useState<{
+    [key: string]: File | null;
+  }>({
+    assignment1: null,
+    assignment2: null,
+    assignment3: null,
+    assignment4: null,
+    assignment5: null,
+  });
+  const [urls, setUrls] = useState<string[]>([""]);
+  const [notes, setNotes] = useState<string>("");
+  const [examType, setExamType] = useState<string>("sessional1");
+  const [paperFormat, setPaperFormat] = useState<string>("");
+  const [generatedPaper, setGeneratedPaper] = useState<string | null>(null);
+  const [extractedTexts, setExtractedTexts] = useState<
+    Array<{ filename: string; text: string }>
+  >([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("generate");
+
+  const handleFileUpload = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    assignmentKey: string
+  ) => {
+    if (event.target.files && event.target.files[0]) {
+      setAssignments((prev) => ({
+        ...prev,
+        [assignmentKey]: event.target.files![0],
+      }));
+    }
+  };
+
+  const handleUrlChange = (index: number, value: string) => {
+    const newUrls = [...urls];
+    newUrls[index] = value;
+    setUrls(newUrls);
+  };
+
+  const addUrlField = () => {
+    setUrls([...urls, ""]);
+  };
+
+  const handleGeneratePaper = async () => {
+    setError(null);
+    setGeneratedPaper(null);
+    setExtractedTexts([]);
+    setIsLoading(true);
+
+    const pdfs = await Promise.all(
+      Object.values(assignments)
+        .filter((file): file is File => file !== null)
+        .map(async (file) => {
+          return {
+            filename: file.name,
+            content: await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            }),
+          };
+        })
+    );
+
+    const payload = {
+      exam_type: examType,
+      paper_format: paperFormat,
+      pdfs,
+      urls: urls.filter((url) => url.trim() !== ""),
+      notes,
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/generate_paper`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("Failed to generate exam paper");
+      const data = await response.json();
+      setGeneratedPaper(data.paper);
+      setExtractedTexts(data.extracted_texts);
+    } catch (error) {
+      console.error("Error generating paper:", error);
+      setError("Failed to generate exam paper. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div className="container mx-auto p-4">
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle>Exam Paper Generator</CardTitle>
+          <CardDescription>
+            Upload PDFs, add URLs, or enter notes to generate exam papers
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="generate">Generate Paper</TabsTrigger>
+              <TabsTrigger value="extracted">Extracted Text</TabsTrigger>
+            </TabsList>
+            <TabsContent value="generate">
+              <div className="space-y-4">
+                {[
+                  "assignment1",
+                  "assignment2",
+                  "assignment3",
+                  "assignment4",
+                  "assignment5",
+                ].map((key) => (
+                  <div key={key}>
+                    <Label
+                      htmlFor={`file-upload-${key}`}
+                    >{`Assignment ${key.slice(-1)} (PDF)`}</Label>
+                    <Input
+                      id={`file-upload-${key}`}
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => handleFileUpload(e, key)}
+                      className="mt-1"
+                    />
+                    {assignments[key] && (
+                      <p className="text-sm text-green-600 mt-1">
+                        File uploaded: {assignments[key]?.name}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                {urls.map((url, index) => (
+                  <div key={index}>
+                    <Label htmlFor={`url-${index}`}>{`URL ${index + 1}`}</Label>
+                    <Input
+                      id={`url-${index}`}
+                      type="url"
+                      value={url}
+                      onChange={(e) => handleUrlChange(index, e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                ))}
+                <Button onClick={addUrlField}>Add Another URL</Button>
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="mt-1"
+                    rows={5}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="exam-type">Exam Type</Label>
+                  <Select value={examType} onValueChange={setExamType}>
+                    <SelectTrigger id="exam-type">
+                      <SelectValue placeholder="Select exam type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sessional1">
+                        Sessional 1 (Assignments 1-2)
+                      </SelectItem>
+                      <SelectItem value="sessional2">
+                        Sessional 2 (Assignments 3-4)
+                      </SelectItem>
+                      <SelectItem value="put">PUT (All Assignments)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="paper-format">Paper Format</Label>
+                  <Textarea
+                    id="paper-format"
+                    value={paperFormat}
+                    onChange={(e) => setPaperFormat(e.target.value)}
+                    className="mt-1"
+                    rows={5}
+                    placeholder="Enter the desired paper format here..."
+                  />
+                </div>
+                <Button onClick={handleGeneratePaper} disabled={isLoading}>
+                  {isLoading ? "Generating..." : "Generate Exam Paper"}
+                </Button>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                {generatedPaper && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Generated Exam Paper</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <pre className="whitespace-pre-wrap">
+                        {generatedPaper}
+                      </pre>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+            <TabsContent value="extracted">
+              <Accordion type="single" collapsible className="w-full">
+                {extractedTexts.map((item, index) => (
+                  <AccordionItem value={`item-${index}`} key={index}>
+                    <AccordionTrigger>{item.filename}</AccordionTrigger>
+                    <AccordionContent>
+                      <pre className="whitespace-pre-wrap">{item.text}</pre>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }
